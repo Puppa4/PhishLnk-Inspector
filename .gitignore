@@ -1,0 +1,26 @@
+# Python virtual environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Potentially sensitive analysis samples — do not publish by default
+*.lnk
+*.zip
+*.iso
+
+# Editor/OS files
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
