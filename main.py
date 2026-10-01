@@ -34,13 +34,14 @@ SUSPICIOUS_TOOLS = (
 URL_PATTERN = re.compile(r"(?i)\b(?:https?://|ftp://)[^\s\"'<>]+")
 DOMAIN_PATTERN = re.compile(
     r"(?i)(?<![@\w.-])(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
-    r"[a-z]{2,63}(?::\d{1,5})?(?:/[^\s\"'<>]*)?"
+    r"[a-z]{2,63}(?::\d{1,5})?(?![\w.-])"
 )
 IP_PATTERN = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 IPV6_PATTERN = re.compile(r"(?<![\w:])(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}(?![\w:])")
 ENCODED_COMMAND_PATTERN = re.compile(
     r"(?i)(?:^|\s)-(?:enc|encodedcommand)\s+['\"]?([A-Za-z0-9+/=_-]+)"
 )
+NON_DOMAIN_SUFFIXES = {"exe", "dll", "bat", "cmd", "ps1", "vbs", "js", "hta"}
 
 
 # LNK içeriğini LnkParse3 ile okur ve ham parse verisini döndürür.
@@ -115,7 +116,7 @@ def extract_indicators(text: str) -> Dict[str, List[str]]:
         domain
         for domain in domains
         if domain.rsplit(".", 1)[-1].split(":", 1)[0].lower()
-        not in {"exe", "dll", "bat", "cmd", "ps1", "vbs", "js", "hta"}
+        not in NON_DOMAIN_SUFFIXES
     }
     for url in urls:
         parsed_url = urlparse(url)
@@ -135,6 +136,48 @@ def extract_indicators(text: str) -> Dict[str, List[str]]:
         "domains": sorted(domains, key=str.lower),
         "ips": sorted(ips),
     }
+
+
+def defang_text(text: str) -> str:
+    def replace_url(match: re.Match[str]) -> str:
+        value = match.group(0)
+        trailing = value[len(value.rstrip(".,;)]}")):]
+        value = value.rstrip(".,;)]}")
+        value = re.sub(r"(?i)^https://", "hxxps://", value)
+        value = re.sub(r"(?i)^http://", "hxxp://", value)
+        return value.replace(".", "[.]") + trailing
+
+    def replace_domain(match: re.Match[str]) -> str:
+        value = match.group(0)
+        suffix = value.rsplit(".", 1)[-1].split(":", 1)[0].lower()
+        return value if suffix in NON_DOMAIN_SUFFIXES else value.replace(".", "[.]")
+
+    def replace_ipv4(match: re.Match[str]) -> str:
+        value = match.group(0)
+        try:
+            ipaddress.IPv4Address(value)
+        except ipaddress.AddressValueError:
+            return value
+        return value.replace(".", "[.]")
+
+    text = URL_PATTERN.sub(replace_url, text)
+    text = DOMAIN_PATTERN.sub(replace_domain, text)
+    text = IP_PATTERN.sub(replace_ipv4, text)
+    return IPV6_PATTERN.sub(lambda match: match.group(0).replace(":", "[:]"), text)
+
+
+def defang_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    safe_report = dict(report)
+    for key in ("target_path", "command_line_arguments"):
+        safe_report[key] = defang_text(report[key])
+    safe_report["decoded_commands"] = [
+        defang_text(command) for command in report["decoded_commands"]
+    ]
+    safe_report["indicators"] = {
+        kind: [defang_text(value) for value in values]
+        for kind, values in report["indicators"].items()
+    }
+    return safe_report
 
 
 # Tüm bulguları bir araya getirerek JSON'a uygun analiz raporu oluşturur.
@@ -182,6 +225,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "--json", action="store_true", help="Bulguları JSON biçiminde yazdır"
     )
+    parser.add_argument(
+        "--no-defang",
+        action="store_true",
+        help="URL, alan adı ve IP adreslerini ham biçimde yazdır",
+    )
     args = parser.parse_args(argv)
 
     if not args.lnk_file.is_file():
@@ -194,6 +242,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     except Exception as error:
         console.print(f"[bold red]LNK analiz edilemedi:[/] {error}", file=sys.stderr)
         return 1
+
+    if not args.no_defang:
+        report = defang_report(report)
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))

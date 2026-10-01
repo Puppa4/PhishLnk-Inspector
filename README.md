@@ -19,8 +19,11 @@ Komutlarda `C:\path\to\file.lnk` bölümünü analiz etmek istediğiniz `.lnk` d
 ```powershell
 python main.py "C:\path\to\file.lnk"
 python main.py "C:\path\to\file.lnk" --json
+python main.py "C:\path\to\file.lnk" --no-defang
 ```
 
 `PhishLnk-Inspector.py` aynı CLI için alternatif giriş noktasıdır.
+
+URL'ler, alan adları ve IP adresleri terminal ve JSON raporlarında varsayılan olarak defang edilir. Ham değerler için `--no-defang` kullanın.
 
 Analiz statiktir; LNK içindeki komutlar çalıştırılmaz. Arşivlerden (`.zip`, `.iso`) otomatik çıkarma bu başlangıç sürümünün kapsamı dışındadır. Alan adı ve IP eşleşmeleri regex ile aday olarak bulunur; sonuçlar analist tarafından doğrulanmalıdır.
