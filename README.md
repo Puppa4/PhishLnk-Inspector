@@ -1,6 +1,6 @@
 # PhishLnk-Inspector
 
-Windows `.lnk` kısayollarını çalıştırmadan statik olarak inceleyen hafif bir Blue Team / SOC CLI aracıdır. `LnkParse3` ile kısayol verisini okur; yaygın LOLBAS araçlarını, PowerShell Base64 komutlarını, URL'leri, alan adlarını ve IPv4 adreslerini raporlar.
+Windows `.lnk` kısayollarını çalıştırmadan statik olarak inceleyen hafif bir Blue Team / SOC CLI aracıdır. `LnkParse3` ile kısayol verisini okur; yaygın LOLBAS araçlarını, PowerShell Base64 komutlarını, URL'leri, alan adlarını ve IPv4/IPv6 adreslerini raporlar.
 
 ## Kurulum
 
@@ -14,9 +14,13 @@ python -m pip install -r requirements.txt
 
 ## Kullanım
 
+Komutlarda `C:\path\to\file.lnk` bölümünü analiz etmek istediğiniz `.lnk` dosyasının yolu ile değiştirin. `.lnk` örnekleri `.gitignore` tarafından GitHub'a eklenmediği için bu depoda örnek dosya bulunmayabilir.
+
 ```powershell
-python main.py .\samples\suspicious.lnk
-python main.py .\samples\suspicious.lnk --json
+python main.py "C:\path\to\file.lnk"
+python main.py "C:\path\to\file.lnk" --json
 ```
+
+`PhishLnk-Inspector.py` aynı CLI için alternatif giriş noktasıdır.
 
 Analiz statiktir; LNK içindeki komutlar çalıştırılmaz. Arşivlerden (`.zip`, `.iso`) otomatik çıkarma bu başlangıç sürümünün kapsamı dışındadır. Alan adı ve IP eşleşmeleri regex ile aday olarak bulunur; sonuçlar analist tarafından doğrulanmalıdır.
